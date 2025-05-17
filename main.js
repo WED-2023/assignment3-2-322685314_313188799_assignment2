@@ -8,8 +8,10 @@ const DButils = require("./routes/utils/DButils");
 var cors = require('cors')
 
 var app = express();
-app.use(logger("dev")); //logger
-app.use(express.json()); // parse application/json
+app.use(logger("dev")); //logger, each request sent to server will shown in console
+app.use(express.json()); // parse application/json -> even if the request has not send as json
+
+// for each request we will open a session for the current client
 app.use(
   session({
     cookieName: "session", // the cookie key name
@@ -51,18 +53,18 @@ app.get("/",function(req,res)
 // app.options("*", cors(corsConfig));
 
 var port = process.env.PORT || "3000"; //local=3000 remote=80
-//#endregion
+//#endregion -> import all request handler files 
 const user = require("./routes/user");
 const recipes = require("./routes/recipes");
 const auth = require("./routes/auth");
+// const search = require("./routes/search");
 
-
-//#region cookie middleware
+//#region cookie middleware -> check if current client is a sign-up user
 app.use(function (req, res, next) {
   if (req.session && req.session.user_id) {
-    DButils.execQuery("SELECT user_id FROM users")
+    DButils.execQuery("SELECT userID FROM users")
       .then((users) => {
-        if (users.find((x) => x.user_id === req.session.user_id)) {
+        if (users.find((x) => x.userID === req.session.user_id)) {
           req.user_id = req.session.user_id;
         }
         next();
@@ -78,8 +80,9 @@ app.use(function (req, res, next) {
 app.get("/alive", (req, res) => res.send("I'm alive"));
 
 // Routings
-app.use("/users", user);
+app.use("/users", user); // for example, each request starts with /users (in the requested url) will sent to the user = ./routes/user file 
 app.use("/recipes", recipes);
+// app.use("/search", search);
 app.use("/", auth);
 
 
