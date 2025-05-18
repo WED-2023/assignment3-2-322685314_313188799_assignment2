@@ -11,7 +11,7 @@ const user_utils = require("./utils/user_utils");
 router.get("/", async (req, res, next) => {
     try {
     const random_recipes = await recipes_utils.get3RandomPreviwe();
-    // add isWatched flag and isFavorite flag if current client is a loged-in user 
+    // Add user-specific info if logged in
     if (req.session && req.session.user_id){
       for (const random of random_recipes){
         random.isFavoriteByUser = await user_utils.isFavoriteByUser(req.session.user_id, random.id);
@@ -30,6 +30,12 @@ router.get("/", async (req, res, next) => {
 router.get("/:recipeId", async (req, res, next) => {
   try {
     const recipe = await recipes_utils.getRecipeDetails(req.params.recipeId);
+    // Add user-specific info if logged in
+    if (req.session && req.session.user_id){
+        recipe.isFavoriteByUser = await user_utils.isFavoriteByUser(req.session.user_id, recipe.id);
+        if (req.session.watchedRecipesIDs && req.session.watchedRecipesIDs.includes(recipe.id)) 
+          random.isWatched = true;
+      }
     res.send(recipe);
   } catch (error) {
     next(error);

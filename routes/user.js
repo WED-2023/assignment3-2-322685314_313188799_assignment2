@@ -59,7 +59,7 @@ router.get('/favorites', async (req,res,next) => {
 });
 
 // Mark recipeID as watched for current user session - make this action tranperent in frounted
-router.post("/:recipeID/watch", (req, res) => {
+router.post("/watch/:recipeID", (req, res) => {
   try{
   const recipeID = req.params.recipeID;
   if (!req.session.watchedRecipesIDs) {

@@ -56,7 +56,7 @@ var port = process.env.PORT || "3000"; //local=3000 remote=80
 //#endregion -> import all request handler files 
 const user = require("./routes/user");
 const recipes = require("./routes/recipes");
-const auth = require("./routes/auth");
+const auth = require("./routes/home");
 // const search = require("./routes/search");
 
 //#region cookie middleware -> check if current client is a sign-up user

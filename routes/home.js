@@ -1,7 +1,7 @@
 var express = require("express");
 var router = express.Router();
-const MySql = require("../routes/utils/MySql");
-const DButils = require("../routes/utils/DButils");
+const MySql = require("./utils/MySql");
+const DButils = require("./utils/DButils");
 const bcrypt = require("bcrypt");
 
 router.post("/Register", async (req, res, next) => {
@@ -74,6 +74,26 @@ router.post("/Logout", function (req, res) {
   console.log("session user_id Logout: " + req.session.user_id);
   req.session.reset(); // reset the session info --> send cookie when  req.session == undefined!!
   res.send({ success: true, message: "logout succeeded" });
+});
+
+
+// boolean API interface to validate if there is a loged-in user (and who by userID) or not
+router.get("/isLoggedIn", (req, res) => {
+  if (req.session && req.session.user_id) {
+    res.status(200).send({ isLoggedIn: true, username: req.session.username });
+  } else {
+    res.status(200).send({ isLoggedIn: false });
+  }
+});
+
+router.get("/search", async (req, res, next) => {
+  try {
+    const query = req.query.query;
+    // logic 
+    res.status(200).send({ message: "תוצאות חיפוש" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
