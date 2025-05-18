@@ -96,4 +96,3 @@ exports.getRecipeDetails = getRecipeDetails;
 exports.getRecipesPreview = getRecipesPreview;
 exports.get3RandomPreviwe = get3RandomPreviwe;
 
-

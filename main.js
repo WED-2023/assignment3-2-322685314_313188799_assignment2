@@ -80,9 +80,8 @@ app.use(function (req, res, next) {
 app.get("/alive", (req, res) => res.send("I'm alive"));
 
 // Routings
-app.use("/users", user); // for example, each request starts with /users (in the requested url) will sent to the user = ./routes/user file 
+app.use("/user", user); // for example, each request starts with /users (in the requested url) will sent to the user = ./routes/user file 
 app.use("/recipes", recipes);
-// app.use("/search", search);
 app.use("/", auth);
 
 

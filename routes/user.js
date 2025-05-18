@@ -34,7 +34,9 @@ router.post('/favorites', async (req,res,next) => {
   try{
     const user_id = req.session.user_id;
     const recipe_id = req.body.recipeId;
-    await user_utils.markAsFavorite(user_id,recipe_id);
+    const isFavorite = await user_utils.isFavoriteByUser(user_id, recipeID)
+    if (!isFavorite)
+      await user_utils.markAsFavorite(user_id,recipe_id);
     res.status(200).send("The Recipe successfully saved as favorite");
     } catch(error){
     next(error);
@@ -47,19 +49,39 @@ router.post('/favorites', async (req,res,next) => {
 router.get('/favorites', async (req,res,next) => {
   try{
     const user_id = req.session.user_id;
-    // getFavoriteRecipes returns an array of {recepieID: xx}
+    // getFavoriteRecipes returns an array of {recepieID: xx}. Note - this is a Spooncular type of recipe ID.
     const recipes_id = await user_utils.getFavoriteRecipes(user_id);
     let recipes_id_array = [];
-    recipes_id.map((element) => recipes_id_array.push(element.recipe_id)); //extracting the recipe ids into array
-    const results = await recipe_utils.getRecipesPreview(recipes_id_array);
+    recipes_id.map((element) => recipes_id_array.push(element.SpoonRecipeID)); //extracting the recipe ids into array
+    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipes_id_array));
     res.status(200).send(results);
   } catch(error){
     next(error); 
   }
 });
 
+/**
+ * This path deletes a favorited recipe from the favorites list of the logged-in user
+ */
+router.delete('/favorites/:recipeID', async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipeID = req.params.recipeID;
+
+    const isFavorite = await user_utils.isFavoriteByUser(user_id, recipeID);
+    if (!isFavorite) {
+      res.status(404).send({ message: "Recipe not found in favorites" });
+      return;
+    }
+    await user_utils.removeFavoriteRecipe(user_id, recipeID);
+    res.status(200).send({ message: "Recipe successfully removed from favorites" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Mark recipeID as watched for current user session - make this action tranperent in frounted
-router.post("/watch/:recipeID", (req, res) => {
+router.post("/watch/:recipeID", (req, res, next) => {
   try{
   const recipeID = req.params.recipeID;
   if (!req.session.watchedRecipesIDs) {
@@ -75,7 +97,7 @@ router.post("/watch/:recipeID", (req, res) => {
 });
 
 // Get 3 watched recipes by current user
-router.get("/watch", async (req, res) => {
+router.get("/watch", async (req, res, next) => {
   try{
     const recipeIDs = req.session.watchedRecipesIDs;
     if (!recipeIDs) {
@@ -83,14 +105,7 @@ router.get("/watch", async (req, res) => {
     }
     // take first 3 random recipes from watched recipes list
     const shuffled = [...recipeIDs].sort(() => 0.5 - Math.random());
-    const results = await recipe_utils.getRecipesPreview(shuffled.slice(0, 3));
-
-    // Add user-specific info if logged in
-    if (req.session && req.session.user_id){
-      for (const watched_recipe of results){
-        watched_recipe.isWatched = true;
-        watched_recipe.isFavoriteByUser = await user_utils.isFavoriteByUser(req.session.user_id, watched_recipe.id);
-      }}
+    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(shuffled.slice(0, 3)));
     res.status(200).send(results);
   } catch(error){
     next(error); 
