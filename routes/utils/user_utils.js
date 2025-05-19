@@ -37,8 +37,51 @@ async function removeFavoriteRecipe(user_id, recipe_id) {
   );
 }
 
+async function createNewRecipe(user_id, recipe_details) {
+  const {
+    title,
+    readyInMinutes,
+    image,
+    popularity,
+    vegan,
+    vegetarian,
+    glutenFree,
+    extendedIngredients,
+    instructions,
+    servings,
+  } = recipe_details;
+
+  const result = await DButils.execQuery(`
+    SELECT MAX(CAST(SUBSTRING(recipeID, 3) AS UNSIGNED)) AS maxID
+    FROM recipes
+    WHERE recipeID LIKE 'U_%'
+  `);
+
+  const maxID = result[0].maxID || 0;
+  const newID = `U_${maxID + 1}`;
+
+  await DButils.execQuery(
+    `
+    INSERT INTO recipes (
+      recipeID, title, readyInMinutes, image, popularity,
+      vegan, vegetarian, glutenFree, extendedIngredients,
+      instructions, servings, userID
+    )
+    VALUES (${newID}, ${title}, ${readyInMinutes}, ${image}, ${popularity}, ${vegan ? 1 : 0}, ${vegetarian ? 1 : 0}, ${glutenFree ? 1 : 0}, ${JSON.stringify(extendedIngredients)}, ${instructions}, ${servings}, ${user_id})
+    `
+  );
+
+  return { success: true, recipeID: newID };
+}
+
+
+
+
+
+
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
 exports.isFavoriteByUser = isFavoriteByUser;
 exports.completeUserSpecificPreview = completeUserSpecificPreview;
 exports.removeFavoriteRecipe = removeFavoriteRecipe;
+exports.createNewRecipe = createNewRecipe;

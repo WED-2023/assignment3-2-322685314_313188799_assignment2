@@ -30,5 +30,13 @@ router.get("/:recipeId", async (req, res, next) => {
   }
 });
 
-
+router.get("/search", async (req, res, next) => {
+  try {
+    const query = req.query.query;
+    // logic 
+    res.status(200).send({ message: "תוצאות חיפוש" });
+  } catch (err) {
+    next(err);
+  }
+});
 module.exports = router;

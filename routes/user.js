@@ -112,4 +112,20 @@ router.get("/watch", async (req, res, next) => {
   }
 });
 
+
+/**
+ * This path gets body with recipe details and create a new record for a 'my recipes' list of the logged-in user
+ */
+router.post('/recipes', async (req,res,next) => {
+  try{
+    const user_id = req.session.user_id;
+    const recipe_details = req.body;
+    const status = await user_utils.createNewRecipe(user_id, recipe_details);
+    if (!status.success)
+      return res.status(500).send("Server failed to add new recipe");
+    res.status(200).send(`Recipe added to list ${status.recipeID}`);
+    } catch(error){
+    next(error);
+  }
+})
 module.exports = router;
