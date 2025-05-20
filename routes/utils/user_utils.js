@@ -5,14 +5,14 @@ async function markAsFavorite(user_id, recipe_id){
 }
 
 async function getFavoriteRecipes(user_id){
-    const recipes_id = await DButils.execQuery(`select SpoonRecipeID from user_favorited_recipes where userID='${user_id}'`);
+    const recipes_id = await DButils.execQuery(`select SpoonRecipeID from user_favorited_recipes where userID=${user_id}`);
     return recipes_id;
 }
 
 
 async function isFavoriteByUser(user_id, recipe_id){
     const result = await DButils.execQuery(
-      `SELECT * FROM user_favorited_recipes WHERE userID = '${user_id}' AND SpoonRecipeID = '${recipe_id}'`
+      `SELECT * FROM user_favorited_recipes WHERE userID = ${user_id} AND SpoonRecipeID = '${recipe_id}'`
     );
     return result.length > 0;
 }
@@ -33,7 +33,7 @@ async function completeUserSpecificPreview(session, recipes_preview_info) {
 
 async function removeFavoriteRecipe(user_id, recipe_id) {
   await DButils.execQuery(
-    `DELETE FROM user_favorited_recipes WHERE userID = '${user_id}' AND SpoonRecipeID = '${recipe_id}'`
+    `DELETE FROM user_favorited_recipes WHERE userID = ${user_id} AND SpoonRecipeID = '${recipe_id}'`
   );
 }
 
@@ -56,28 +56,45 @@ async function createNewRecipe(user_id, recipe_details) {
     FROM recipes
     WHERE recipeID LIKE 'U_%'
   `);
-
   const maxID = result[0].maxID || 0;
   const newID = `U_${maxID + 1}`;
 
-  await DButils.execQuery(
-    `
+  await DButils.execQuery(`
     INSERT INTO recipes (
       recipeID, title, readyInMinutes, image, popularity,
       vegan, vegetarian, glutenFree, extendedIngredients,
       instructions, servings, userID
     )
-    VALUES (${newID}, ${title}, ${readyInMinutes}, ${image}, ${popularity}, ${vegan ? 1 : 0}, ${vegetarian ? 1 : 0}, ${glutenFree ? 1 : 0}, ${JSON.stringify(extendedIngredients)}, ${instructions}, ${servings}, ${user_id})
-    `
-  );
-
+    VALUES (
+      '${newID}',
+      '${title}',
+      ${readyInMinutes},
+      '${image}',
+      ${popularity},
+      ${vegan},
+      ${vegetarian},
+      ${glutenFree},
+      '${JSON.stringify(extendedIngredients)}',
+      '${instructions}',
+      ${servings},
+      ${user_id}
+    )
+  `);
   return { success: true, recipeID: newID };
 }
 
 
+/*Retrive all user's recipes*/
+async function getUserRecipes(user_id) {
+  const recipes_id = await DButils.execQuery(`SELECT CAST(SUBSTRING(recipeID, 3) AS UNSIGNED) AS recipe_num FROM recipes WHERE userID = ${user_id}`);
+  return recipes_id
+}
 
 
-
+/*Retrive all user's recipes*/
+async function removeUserRecipe(recipeID) {
+  await DButils.execQuery(`DELETE FROM recipes WHERE recipeID = '${recipeID}';`);
+}
 
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
@@ -85,3 +102,5 @@ exports.isFavoriteByUser = isFavoriteByUser;
 exports.completeUserSpecificPreview = completeUserSpecificPreview;
 exports.removeFavoriteRecipe = removeFavoriteRecipe;
 exports.createNewRecipe = createNewRecipe;
+exports.getUserRecipes = getUserRecipes;
+exports.removeUserRecipe = removeUserRecipe;

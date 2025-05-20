@@ -103,9 +103,8 @@ router.get("/watch", async (req, res, next) => {
     if (!recipeIDs) {
      return res.status(404).send({ message: `No watched recipes by user_id: ${req.session.user_id}` });
     }
-    // take first 3 random recipes from watched recipes list
-    const shuffled = [...recipeIDs].sort(() => 0.5 - Math.random());
-    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(shuffled.slice(0, 3)));
+    // take last 3 recipes from watched recipes list
+    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipeIDs.slice(-3)));
     res.status(200).send(results);
   } catch(error){
     next(error); 
@@ -127,5 +126,31 @@ router.post('/recipes', async (req,res,next) => {
     } catch(error){
     next(error);
   }
-})
+});
+
+router.get("/recipes", async (req, res, next) => {
+  try{
+    const user_id = req.session.user_id;
+    const recipes_id = await user_utils.getUserRecipes(user_id);
+    let recipes_id_array = [];
+    recipes_id.map((element) => recipes_id_array.push(element.recipe_num)); //extracting the recipe ids into array
+    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipes_id_array));
+    res.status(200).send(results);
+  } catch(error){
+    next(error); 
+  }
+});
+
+
+router.delete("/recipes/:recipeID", async (req, res, next) => {
+  try {
+    const recipeID = req.params.recipeID;
+    const recipeIDformat = `U_${recipeID}`;
+    await user_utils.removeUserRecipe(recipeIDformat);
+    res.status(200).send({ message: "Recipe successfully removed from favorites" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
