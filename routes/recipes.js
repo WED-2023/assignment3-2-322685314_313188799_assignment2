@@ -16,6 +16,33 @@ router.get("/", async (req, res, next) => {
   catch (error) {next(error);}
 });
 
+
+router.get("/search", async (req, res, next) => {
+ try {
+    const { query, cuisine, diet, intolerance, limit = 5, sort } = req.query;
+    const intoleranceArray = intolerance ? intolerance.split(",") : [];
+
+    const results_from_utils = await recipes_utils.searchRecipes(
+      query, {
+      cuisine,
+      diet,
+      intolerance: intoleranceArray,
+      limit: parseInt(limit),
+      sort,
+    });
+
+    if (req.session && req.session.user_id){
+      req.session.last_search = results_from_utils;
+    } 
+
+    const results_preview = await user_utils.completeUserSpecificPreview(req.session, await recipes_utils.get3RandomPreviwe());    
+    res.status(200).send(results_preview);
+  } catch (err) {
+    next(err);
+  }
+});
+
+
 /**
  * This path returns a full details of a recipe by its id
  */
@@ -31,13 +58,5 @@ router.get("/:recipeId", async (req, res, next) => {
 });
 
 
-router.get("/search", async (req, res, next) => {
-  try {
-    const query = req.query.query;
-    // logic 
-    res.status(200).send({ message: "תוצאות חיפוש" });
-  } catch (err) {
-    next(err);
-  }
-});
+
 module.exports = router;

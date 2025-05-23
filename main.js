@@ -57,7 +57,6 @@ var port = process.env.PORT || "3000"; //local=3000 remote=80
 const user = require("./routes/user");
 const recipes = require("./routes/recipes");
 const auth = require("./routes/auth");
-// const search = require("./routes/search");
 
 //#region cookie middleware -> check if current client is a sign-up user
 app.use(function (req, res, next) {

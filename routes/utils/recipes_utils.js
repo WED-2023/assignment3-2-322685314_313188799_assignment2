@@ -1,5 +1,6 @@
 const axios = require("axios");
 const DButils = require("./DButils");
+require("dotenv").config();
 const api_domain = "https://api.spoonacular.com/recipes";
 
 
@@ -92,7 +93,40 @@ async function get3RandomPreviwe(){
 
 }
 
+async function searchRecipes(recipe_title, extended_search = {}) {
+  const {
+    cuisine,
+    diet,
+    intolerance,
+    limit = 5,
+    sort
+  } = extended_search;
+
+  const params = {
+    query: recipe_title,
+    number: limit,
+    instructionsRequired: true,
+    includeNutrition: false,
+    apiKey: process.env.spooncular_apiKey
+  };
+
+  if (cuisine) params.cuisine = cuisine;
+  if (diet) params.diet = diet;
+  if (intolerance && Array.isArray(intolerance) && intolerance.length != 0) {
+    params.intolerances = intolerance.join(",");
+  }
+  if (sort) params.sort = sort;
+  const results_from_api = await axios.get(`${api_domain}/complexSearch`, {
+        params: params
+    });
+
+  const ids = results_from_api.data.results.map(item => item.id);//extracting the recipe ids into array
+  return ids;
+}
+
+
 exports.getRecipeDetails = getRecipeDetails;
 exports.getRecipesPreview = getRecipesPreview;
 exports.get3RandomPreviwe = get3RandomPreviwe;
+exports.searchRecipes = searchRecipes;
 
