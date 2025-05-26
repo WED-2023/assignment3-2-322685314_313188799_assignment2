@@ -10,6 +10,19 @@ const api_domain = "https://api.spoonacular.com/recipes";
  * @param {*} recipes_info 
  */
 
+// A function for normlized a U_ID formated recipeID if needed - return it as a string-int for example '21255'
+function normalizeId(id) {
+  // try to cast id to int
+  const num = Number(id);
+
+  if (!isNaN(num)) {
+    // return ID as string
+    return id;
+  }
+  // cut U_ from U_ID
+  return  id.substring(2);;
+}
+
 
 async function getRecipeInformation(recipe_id) {
     return await axios.get(`${api_domain}/${recipe_id}/information`, {
@@ -20,16 +33,20 @@ async function getRecipeInformation(recipe_id) {
     });
 }
 
+// Using spooncular API for extract recipe details
 async function getRecipeDetails(recipe_id) {
     let recipe_info = await getRecipeInformation(recipe_id);
     let { id, title, readyInMinutes, image, aggregateLikes, vegan, vegetarian, glutenFree, extendedIngredients, instructions, servings} = recipe_info.data;
 
+    // check popularity in local DB 
+    const local_likes_result  = await DButils.execQuery(`SELECT likes FROM recipes_local_likes WHERE  recipeID = '${id}';`);
+    const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
     return {
         id: id,
         title: title,
         readyInMinutes: readyInMinutes,
         image: image,
-        popularity: aggregateLikes,
+        popularity: aggregateLikes + local_likes,
         vegan: vegan,
         vegetarian: vegetarian,
         glutenFree: glutenFree,
@@ -53,7 +70,7 @@ function extractPreviewRecipeDetails(recipes_info) {
       title,
       readyInMinutes,
       image,
-      aggregateLikes,
+      popularity,
       vegan,
       vegetarian,
       glutenFree,
@@ -63,7 +80,7 @@ function extractPreviewRecipeDetails(recipes_info) {
       title: title,
       image: image,
       readyInMinutes: readyInMinutes,
-      popularity: aggregateLikes,
+      popularity: popularity,
       vegan: vegan,
       vegetarian: vegetarian,
       glutenFree: glutenFree
@@ -73,14 +90,31 @@ function extractPreviewRecipeDetails(recipes_info) {
 
 // given an array of recipes ids -> retrive all recipe preciew 
 async function getRecipesPreview(recipes_ids_list) {
+  // extreact recipe details from DB 
+  db_recipes = [];
+  for (const id of recipes_ids_list){
+    if (id[0] == 'U')
+      db_recipes.push(id);
+  }
+  let db_preview_recipe_records;
+  if (db_recipes.length !== 0){
+    db_preview_recipe_records = await DButils.execQuery(`select recipeID, title, image, readyInMinutes, vegan, vegetarian, glutenFree from recipes where recipeID IN (${db_recipes.map(id => `'${id}'`).join(',')})`);
+  }
+  // extreact recipe details from spooncular 
+  const filteredList = recipes_ids_list.filter(id => !db_recipes.includes(id));
   let promises = [];
-  recipes_ids_list.map((id) => {
+  filteredList.map((id) => {
     promises.push(getRecipeDetails(id));
   });
-  let info_res = await Promise.all(promises);
-  return extractPreviewRecipeDetails(info_res);
+  let info_res = extractPreviewRecipeDetails(await Promise.all(promises));
+  
+  let all_recipes = Array.isArray(db_preview_recipe_records)
+  ? info_res.concat(db_preview_recipe_records)
+  : info_res;
+  return all_recipes;
 }
 
+// return 3 random recipes from spooncular API
 async function get3RandomPreviwe(){
     let random_recipe_info = await axios.get(`${api_domain}/random?number=3`, {
         params: {
@@ -124,9 +158,22 @@ async function searchRecipes(recipe_title, extended_search = {}) {
   return ids;
 }
 
+async function increaseRecipeLikes(recipeID) {
+   const records = await DButils.execQuery(`SELECT likes FROM recipes_local_likes WHERE recipeID = '${recipeID}';`);
 
+  // update likes
+    if (records.length > 0) 
+      await DButils.execQuery(`UPDATE recipes_local_likes SET likes = likes + 1 WHERE recipeID = '${recipeID}';`);
+    else 
+      await DButils.execQuery(`INSERT INTO recipes_local_likes (recipeID, likes) VALUES ('${recipeID}', 1);`);
+
+    return { success: true };
+    }
+
+exports.normalizeId = normalizeId;
 exports.getRecipeDetails = getRecipeDetails;
 exports.getRecipesPreview = getRecipesPreview;
 exports.get3RandomPreviwe = get3RandomPreviwe;
 exports.searchRecipes = searchRecipes;
+exports.increaseRecipeLikes = increaseRecipeLikes;
 

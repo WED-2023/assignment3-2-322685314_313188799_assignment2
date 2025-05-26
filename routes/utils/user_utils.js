@@ -1,48 +1,86 @@
 const DButils = require("./DButils");
 
+// Favorite:
 async function markAsFavorite(user_id, recipe_id){
-    await DButils.execQuery(`insert into user_favorited_recipes values ('${recipe_id}',${user_id})`);
+  // recipe_id can be U_ID or just ID from spooncular
+    const isFavorite = await isFavoriteByUser(user_id, recipe_id)
+    if (!isFavorite)
+      await DButils.execQuery(`insert into user_favorited_recipes values ('${recipe_id}',${user_id})`);
 }
 
 async function getFavoriteRecipes(user_id){
-    const recipes_id = await DButils.execQuery(`select SpoonRecipeID from user_favorited_recipes where userID=${user_id}`);
+  // can be a spoonculaer recipeID or in a format as U_ID for private recipes
+    const recipes_id = await DButils.execQuery(`select recipeID from user_favorited_recipes where userID=${user_id}`);
     return recipes_id;
 }
 
 
 async function isFavoriteByUser(user_id, recipe_id){
     const result = await DButils.execQuery(
-      `SELECT * FROM user_favorited_recipes WHERE userID = ${user_id} AND SpoonRecipeID = '${recipe_id}'`
+      // recipeID === recipe_id is a string compare test!!!
+      `SELECT * FROM user_favorited_recipes WHERE userID = ${user_id} AND recipeID = '${recipe_id}'`
     );
     return result.length > 0;
 }
 
-// Add user-specific info if logged in
-// given an *array* of preview recipe details - specify isFavoriteByUser and isWatched flags for logged-in user
-async function completeUserSpecificPreview(session, recipes_preview_info) {
-  // parse each id to Number (instead of string)
-  const current_watched_array = session.watchedRecipesIDs?.map(Number) || [];
-  if (session && session.user_id){
-    for (const recipe of recipes_preview_info){
-      recipe.isFavoriteByUser = await isFavoriteByUser(session.user_id, recipe.id);
-      recipe.isWatched = current_watched_array.includes(recipe.id);
-    }
-  }
-  return recipes_preview_info;
-}
-
 async function removeFavoriteRecipe(user_id, recipe_id) {
   await DButils.execQuery(
-    `DELETE FROM user_favorited_recipes WHERE userID = ${user_id} AND SpoonRecipeID = '${recipe_id}'`
+    `DELETE FROM user_favorited_recipes WHERE userID = ${user_id} AND recipeID = '${recipe_id}'`
   );
 }
 
+
+// Watched:
+async function markAsWatched(user_id, recipe_id){
+  // recipe_id can be U_ID or just ID from spooncular
+
+  // delete old record if ID already exist
+  const isWatched = await isWatchedByUser(user_id, recipe_id);
+  if (isWatched)
+    await DButils.execQuery(`DELETE FROM user_recipe_views WHERE userID = ${user_id} AND recipeID = '${recipe_id}'`);
+
+  // insert new watched recipe
+  await DButils.execQuery(`
+    INSERT INTO user_recipe_views (recipeID, userID)
+    VALUES ('${recipe_id}', ${user_id});
+  `);
+
+  // delete older than 3 recent views
+  await DButils.execQuery(`
+    DELETE FROM user_recipe_views
+    WHERE userID = ${user_id}
+      AND recipeID NOT IN (
+        SELECT recipeID
+        FROM (
+          SELECT recipeID
+          FROM user_recipe_views
+          WHERE userID = ${user_id}
+          ORDER BY viewed_at DESC
+          LIMIT 3
+        ) AS recent
+      );
+  `);
+}
+async function getWatchedRecipes(user_id){
+  // can be a spoonculaer recipeID or in a format as U_ID for private recipes
+    const recipes_id = await DButils.execQuery(`select recipeID from user_recipe_views where userID=${user_id}`);
+    return recipes_id;
+}
+
+async function isWatchedByUser(user_id, recipe_id){
+    const result = await DButils.execQuery(
+      // recipeID === recipe_id is a string compare test!!!
+      `SELECT * FROM user_recipe_views WHERE userID = ${user_id} AND recipeID = '${recipe_id}'`
+    );
+    return result.length > 0;
+}
+
+// User's Recipes - All recipes are a DB recipe with ID formatted as U_ID
 async function createNewRecipe(user_id, recipe_details) {
   const {
     title,
     readyInMinutes,
     image,
-    popularity,
     vegan,
     vegetarian,
     glutenFree,
@@ -61,7 +99,7 @@ async function createNewRecipe(user_id, recipe_details) {
 
   await DButils.execQuery(`
     INSERT INTO recipes (
-      recipeID, title, readyInMinutes, image, popularity,
+      recipeID, title, readyInMinutes, image,
       vegan, vegetarian, glutenFree, extendedIngredients,
       instructions, servings, userID
     )
@@ -70,7 +108,6 @@ async function createNewRecipe(user_id, recipe_details) {
       '${title}',
       ${readyInMinutes},
       '${image}',
-      ${popularity},
       ${vegan},
       ${vegetarian},
       ${glutenFree},
@@ -83,19 +120,28 @@ async function createNewRecipe(user_id, recipe_details) {
   return { success: true, recipeID: newID };
 }
 
-
-/*Retrive all user's recipes*/
 async function getUserRecipes(user_id) {
   const recipes_id = await DButils.execQuery(`SELECT CAST(SUBSTRING(recipeID, 3) AS UNSIGNED) AS recipe_num FROM recipes WHERE userID = ${user_id}`);
   return recipes_id
 }
 
-
-/*Retrive all user's recipes*/
 async function removeUserRecipe(recipeID) {
   await DButils.execQuery(`DELETE FROM recipes WHERE recipeID = '${recipeID}';`);
 }
 
+// Add user-specific info if logged in
+// given an *array* of preview recipe details - specify isFavoriteByUser and isWatched flags for logged-in user
+async function completeUserSpecificPreview(session, recipes_preview_info) {
+  const current_user = session.user_id;
+  if (session && session.user_id){
+    for (const recipe of recipes_preview_info){
+      let recipeID = recipe.id ? recipe.id : recipe.recipeID;
+      recipe.isFavoriteByUser = await isFavoriteByUser(current_user, recipeID);
+      recipe.isWatched = await isWatchedByUser(current_user, recipeID);
+    }
+  }
+  return recipes_preview_info;
+}
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
 exports.isFavoriteByUser = isFavoriteByUser;
@@ -104,3 +150,6 @@ exports.removeFavoriteRecipe = removeFavoriteRecipe;
 exports.createNewRecipe = createNewRecipe;
 exports.getUserRecipes = getUserRecipes;
 exports.removeUserRecipe = removeUserRecipe;
+exports.markAsWatched = markAsWatched;
+exports.getWatchedRecipes = getWatchedRecipes;
+exports.isWatchedByUser = isWatchedByUser;

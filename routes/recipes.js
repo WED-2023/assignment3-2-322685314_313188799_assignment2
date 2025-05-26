@@ -4,7 +4,6 @@ const recipes_utils = require("./utils/recipes_utils");
 const user_utils = require("./utils/user_utils");
 
 
-//TODO: TEST WATCHED AND FAFORITED FOR THIS FUNCTION  
 /**
  * This is in the home page - returns a 3 random preview-recipes
  */
@@ -35,13 +34,37 @@ router.get("/search", async (req, res, next) => {
       req.session.last_search = results_from_utils;
     } 
 
-    const results_preview = await user_utils.completeUserSpecificPreview(req.session, await recipes_utils.get3RandomPreviwe());    
+    const results_preview = await user_utils.completeUserSpecificPreview(req.session, await recipes_utils.getRecipesPreview(results_from_utils));
     res.status(200).send(results_preview);
   } catch (err) {
     next(err);
   }
 });
 
+router.get("/LastSearched", async (req, res, next) => {
+  try{
+    if (!req.session || !req.session.user_id){
+      res.status(401).send("Unauthorized: user not found");
+    } 
+    const recipeIDs = req.session.last_search;
+    const last_searched_preview = await user_utils.completeUserSpecificPreview(req.session, await recipes_utils.getRecipesPreview(recipeIDs));
+    res.status(200).send(last_searched_preview);
+  } catch(error){
+    next(error); 
+  }
+});
+
+router.post("/like/:recipeID", async (req, res, next) => {
+  try{
+    if (!req.session || !req.session.user_id){
+      res.status(401).send("Unauthorized: user not found");
+    } 
+    await recipes_utils.increaseRecipeLikes(req.params.recipeID);
+    res.sendStatus(200);
+  } catch(error){
+    next(error); 
+  }
+});
 
 /**
  * This path returns a full details of a recipe by its id

@@ -33,10 +33,8 @@ router.use(async function (req, res, next) {
 router.post('/favorites', async (req,res,next) => {
   try{
     const user_id = req.session.user_id;
-    const recipe_id = req.body.recipeId;
-    const isFavorite = await user_utils.isFavoriteByUser(user_id, recipeID)
-    if (!isFavorite)
-      await user_utils.markAsFavorite(user_id,recipe_id);
+    const recipe_id = req.body.recipeID;
+    await user_utils.markAsFavorite(user_id,recipe_id);
     res.status(200).send("The Recipe successfully saved as favorite");
     } catch(error){
     next(error);
@@ -49,10 +47,10 @@ router.post('/favorites', async (req,res,next) => {
 router.get('/favorites', async (req,res,next) => {
   try{
     const user_id = req.session.user_id;
-    // getFavoriteRecipes returns an array of {recepieID: xx}. Note - this is a Spooncular type of recipe ID.
+    // getFavoriteRecipes returns an array of {recepieID: U_ID or ID}. 
     const recipes_id = await user_utils.getFavoriteRecipes(user_id);
     let recipes_id_array = [];
-    recipes_id.map((element) => recipes_id_array.push(element.SpoonRecipeID)); //extracting the recipe ids into array
+    recipes_id.map((element) => recipes_id_array.push(element.recipeID)); //extracting the recipe ids into array
     const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipes_id_array));
     res.status(200).send(results);
   } catch(error){
@@ -81,30 +79,26 @@ router.delete('/favorites/:recipeID', async (req, res, next) => {
 });
 
 // Mark recipeID as watched for current user session - make this action tranperent in frounted
-router.post("/watch/:recipeID", (req, res, next) => {
-  try{
-  const recipeID = req.params.recipeID;
-  if (!req.session.watchedRecipesIDs) {
-    req.session.watchedRecipesIDs = [];
-  }
-  if (!req.session.watchedRecipesIDs.includes(recipeID)) {
-    req.session.watchedRecipesIDs.push(recipeID);
-  }
-  res.status(200).send({ message: "Recipe marked as watched" });
-  } catch(error){
-    next(error); 
+router.post("/watch", async (req, res, next) => {
+    try{
+    const user_id = req.session.user_id;
+    const recipe_id = req.body.recipeID;
+    await user_utils.markAsWatched(user_id,recipe_id);
+    res.status(200).send("The Recipe successfully saved as watched");
+    } catch(error){
+    next(error);
   }
 });
 
-// Get 3 watched recipes by current user
+
 router.get("/watch", async (req, res, next) => {
-  try{
-    const recipeIDs = req.session.watchedRecipesIDs;
-    if (!recipeIDs) {
-     return res.status(404).send({ message: `No watched recipes by user_id: ${req.session.user_id}` });
-    }
-    // take last 3 recipes from watched recipes list
-    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipeIDs.slice(-3)));
+    try{
+    const user_id = req.session.user_id;
+    // getWatchedRecipes returns an array of {recepieID: xx}. Note - this is a Spooncular type of recipe ID.
+    const recipes_id = await user_utils.getWatchedRecipes(user_id);
+    let recipes_id_array = [];
+    recipes_id.map((element) => recipes_id_array.push(element.recipeID)); //extracting the recipe ids into array
+    const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipes_id_array));
     res.status(200).send(results);
   } catch(error){
     next(error); 

@@ -197,7 +197,7 @@ paths:
                   For unauthenticated users, only general preview data is returned.
         '404':
           description: Recipe not found
-  /search:
+  /recipes/search:
     get:
       tags:
         - recipe
@@ -268,7 +268,37 @@ paths:
           description: Invalid input parameters
         '404':
           description: No recipes found matching the criteria
-          
+  /recipes/LastSearched:
+    get:
+      summary: Get last searched recipes preview for the current user
+      description: Returns a list of recipe previews that the current logged-in user has recently searched for.
+      tags:
+        - recipe
+      responses:
+        '200':
+          description: A list of recently searched recipe previews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recipe'
+        '401':
+          description: Unauthorized - the user is not logged in
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Unauthorized: user not found"
+        '500':
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: An unexpected error occurred
+
+
   /user/recipes:
     get:
       tags: 
@@ -449,7 +479,7 @@ paths:
   /user/favorites/{recipeId}:
     delete:
       tags:
-        - user
+        - favorites
       summary: Remove a favorited recipe from favorites
       operationId: deleteFavRecipe
       description: Remove a favorited recipe from favorites
@@ -470,31 +500,6 @@ paths:
           description: Recipe not found or doesn't favorited by the user
         '400':
           description: Invalid recipe ID format
-    get:
-      tags:
-        - user
-      summary: Get a favorited recipe by ID
-      operationId: getFavRecipeById
-      description: Returns the recipe created by the user that matches the given ID.
-      parameters:
-        - name: recipeId
-          in: path
-          required: true
-          description: The unique ID of the user-created recipe.
-          schema:
-            type: string
-            example: U_123
-      responses:
-        '200':
-          description: The requested recipe
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Recipe'
-        '401':
-          description: 'Unauthorized: user not authenticated'
-        '404':
-          description: Recipe not found or not owned by user
   /user/recipes/family:
     get:
       tags: 
