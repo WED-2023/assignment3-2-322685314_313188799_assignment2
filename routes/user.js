@@ -147,4 +147,21 @@ router.delete("/recipes/:recipeID", async (req, res, next) => {
   }
 });
 
+
+router.get('/family', async (req, res) => {
+  try {
+    const user_id = req.session.user_id;
+    const family_recipes = await user_utils.getFamilyRecipes(user_id);
+    if (family_recipes.length === 0) {
+       return res.status(404).send("No family recipes found for this user");
+    }
+    res.status(200).send(family_recipes);
+  } catch (error) {
+    console.error("Error fetching family recipes:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+
+
 module.exports = router;

@@ -142,6 +142,13 @@ async function completeUserSpecificPreview(session, recipes_preview_info) {
   }
   return recipes_preview_info;
 }
+
+async function getFamilyRecipes(user_id) {
+    const family_recipes = await DButils.execQuery(
+        `SELECT * FROM family_recipes WHERE userID=${user_id}`
+    );
+    return family_recipes;
+}
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
 exports.isFavoriteByUser = isFavoriteByUser;
@@ -153,3 +160,4 @@ exports.removeUserRecipe = removeUserRecipe;
 exports.markAsWatched = markAsWatched;
 exports.getWatchedRecipes = getWatchedRecipes;
 exports.isWatchedByUser = isWatchedByUser;
+exports.getFamilyRecipes = getFamilyRecipes;

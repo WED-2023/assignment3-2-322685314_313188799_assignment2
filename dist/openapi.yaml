@@ -2,6 +2,9 @@ openapi: 3.0.3
 servers:
   # Added by API Auto Mocking Plugin
   # Added by API Auto Mocking Plugin
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/bengutionuneversity/demo/1.0.0
   - description: SwaggerHub API Auto Mocking
     url: https://virtserver.swaggerhub.com/bgu-ea6/APIProject/1.0.0
   - description: SwaggerHub API Auto Mocking
@@ -515,10 +518,31 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Recipe'
+                  $ref: '#/components/schemas/FamilyRecipe'
         '401':
           description: Unauthorized – user must be logged in to access this resource
-
+        '404':
+          description: No family recipes found for this user
+  /like/{recipeID}:
+    post:
+      summary: Increase likes for a recipe
+      description: Increases the number of likes for the recipe with the specified ID. Only accessible to logged-in users.
+      tags:
+        - recipe
+      parameters:
+        - name: recipeID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the recipe to like
+      responses:
+        '200':
+          description: Like was successfully added
+        '401':
+          description: Unauthorized – user is not logged in
+        '500':
+          description: Server error
           
 components:
   schemas:
@@ -643,3 +667,83 @@ components:
       required:
         - userID
         - recipeID
+  
+
+    FamilyRecipe:
+      type: object
+      required:
+        - recipeID
+        - userID
+        - title
+        - readyInMinutes
+        - image
+        - extendedIngredients
+        - instructions
+        - timeInYear
+        - recipeMaster
+      properties:
+        recipeID:
+          type: string
+          example: khachapuri001
+        userID:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: Traditional Khachapuri
+        readyInMinutes:
+          type: integer
+          example: 90
+        image:
+          type: string
+          format: uri
+          example: https://example.com/images/khachapuri.jpg
+        extendedIngredients:
+          type: string
+          example: flour, water, yeast, salt, eggs, sulguni cheese, butter
+        instructions:
+          type: string
+          example: |
+            1. Knead the dough and let it rise for about an hour.
+            2. Prepare the filling by mixing the cheese and eggs.
+            3. Roll out the dough, fill it, and shape it into a boat.
+            4. Bake in a preheated oven at 200°C (392°F) for 25 minutes.
+            5. Add an egg yolk to the center and bake for 3 more minutes.
+            6. Serve hot with a pat of butter on top.
+        timeInYear:
+          type: string
+          example: Winter
+        recipeMaster:
+          type: string
+          example: Natalie's grandmother
+
+    UserRecipeView:
+      type: object
+      required:
+        - userID
+        - recipeID
+        - viewed_at
+      properties:
+        userID:
+          type: integer
+          example: 42
+        recipeID:
+          type: string
+          example: khachapuri001
+        viewed_at:
+          type: string
+          format: date-time
+          example: 2025-05-29T12:00:00Z
+
+    RecipeLikes:
+      type: object
+      required:
+        - recipeID
+        - likes
+      properties:
+        recipeID:
+          type: integer
+          example: 101
+        likes:
+          type: integer
+          example: 17

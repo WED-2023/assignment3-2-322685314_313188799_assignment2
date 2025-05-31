@@ -1,0 +1,22 @@
+Changes to the OpenAPI Specification:
+
+Schemas:
+- Removed redundant schemas like `RecipePreview` and `RecipePreviewInUser` to simplify the model definitions.
+- Added new, relevant schemas such as `user_favorited_recipes` and `FamilyRecipes` to better reflect current functionality.
+
+Route Structure Updates:
+- Changed `/me` to `/user` for a more intuitive and RESTful path name.
+- Registration and login endpoints are now accessible directly from the home path (`/`).
+- Search functionality is now accessed through the `/recipes` route for clearer organization.
+
+New Functionality:
+- Added logout functionality at the `/Logout` route.
+- Introduced `/inLoggedIn` endpoint to assist frontend testing of login state.
+- Added `/recipes/LastSearched` GET endpoint to retrieve the user's recent search history.
+- Added a GET method to fetch a specific user’s recipe by `recipeID`.
+- Added a GET method to retrieve the user's last 3 watched recipes.
+- Added a POST method to increase the number of likes by recipeID.
+
+Modifications:
+- Changed the `/user/watch` method from `PUT` to `POST` for proper REST semantics.
+- Removed the outdated `/user/watch/remove` functionality to reduce API clutter.
