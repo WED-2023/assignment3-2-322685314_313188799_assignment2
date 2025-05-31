@@ -7,7 +7,7 @@ Natallie Mirelashvili, ID: 322685314
 
 Ravit Cohen, ID: 313188799
 
-Our website is know avaible on [tastydevs](https://tastydevs.cs.bgu.ac.il/).
+Our website is now available on [tastydevs](https://tastydevs.cs.bgu.ac.il/).
 
 A screenshot of the server running was submitted in the appropriate assignment box on Moodle.
 
