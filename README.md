@@ -3,6 +3,8 @@
 
 Developers: 
 Natallie Mirelashvili, ID: 322685314
+
 Ravit Cohen, ID: 313188799
+
 A screenshot of the server running was submitted in the appropriate assignment box on Moodle.
 A document named APIsocumentDifferences.txt was added to the root directory of the main branch, detailing the main differences between the API documents before and after the backend part.
