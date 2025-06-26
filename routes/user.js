@@ -162,6 +162,23 @@ router.get('/family', async (req, res) => {
   }
 });
 
+router.get("/check-username", async (req, res, next) => {
+  try {
+    const { username } = req.query;
 
+    if (!username) {
+      return res.status(400).send({ message: "Username is required", success: false });
+    }
 
+    const users = await DButils.execQuery(
+      `SELECT username FROM users WHERE username = '${username}'`
+    );
+
+    const exists = users.length > 0;
+    res.status(200).send({ exists, success: true });
+
+  } catch (err) {
+    next(err); 
+  }
+});
 module.exports = router;
