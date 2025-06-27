@@ -9,6 +9,14 @@ var cors = require('cors')
 
 
 var app = express();
+
+app.use(cors({
+  origin: 'http://localhost:8080',
+  credentials: true
+}));
+
+
+
 app.use(logger("dev")); //logger, each request sent to server will shown in console
 app.use(express.json()); // parse application/json -> even if the request has not send as json
 
