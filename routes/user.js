@@ -8,6 +8,7 @@ const recipe_utils = require("./utils/recipes_utils");
  * Authenticate all incoming requests by middleware -> to prevent not-allowd user to performed a sign-up user actions 
  */
 router.use(async function (req, res, next) {
+  console.log("Session data:", req.session);
   if (req.session && req.session.user_id) {
     try {
       const users = await DButils.execQuery("SELECT userID FROM users");

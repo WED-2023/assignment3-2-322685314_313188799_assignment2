@@ -19,6 +19,7 @@ app.use(cors({
 }));
 
 
+
 // for each request we will open a session for the current client
 app.use(
   session({
@@ -28,7 +29,9 @@ app.use(
     duration: 24 * 60 * 60 * 1000, // expired after 20 sec
     activeDuration: 1000 * 60 * 5, // if expiresIn < activeDuration,
     cookie: {
-      httpOnly: false,
+      httpOnly: false, 
+      secure: false,  
+      sameSite: 'lax' 
     }
     //the session will be extended by activeDuration milliseconds
   })
