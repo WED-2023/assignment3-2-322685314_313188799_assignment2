@@ -33,28 +33,118 @@ async function getRecipeInformation(recipe_id) {
     });
 }
 
-// Using spooncular API for extract recipe details
+// Using spooncular API or local DB to extract recipe details
 async function getRecipeDetails(recipe_id) {
-    let recipe_info = await getRecipeInformation(recipe_id);
-    let { id, title, readyInMinutes, image, aggregateLikes, vegan, vegetarian, glutenFree, extendedIngredients, instructions, servings} = recipe_info.data;
+  // Case 1: Local user-created recipe (starts with 'U_')
+  recipe_id = String(recipe_id);
+  if (recipe_id.startsWith("U_")) {
+    const results = await DButils.execQuery(`
+      SELECT recipeID, title, image, readyInMinutes, vegan, vegetarian, glutenFree, instructions, extendedIngredients, servings
+      FROM recipes
+      WHERE recipeID = '${recipe_id}'
+    `);
 
-    // check popularity in local DB 
-    const local_likes_result  = await DButils.execQuery(`SELECT likes FROM recipes_local_likes WHERE  recipeID = '${id}';`);
-    const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
-    return {
-        id: id,
-        title: title,
-        readyInMinutes: readyInMinutes,
-        image: image,
-        popularity: aggregateLikes + local_likes,
-        vegan: vegan,
-        vegetarian: vegetarian,
-        glutenFree: glutenFree,
-        extendedIngredients: extendedIngredients,
-        instructions: instructions,
-        servings:servings
+    if (results.length === 0) {
+      throw new Error(`Recipe ${recipe_id} not found in local DB`);
     }
+
+    const recipe = results[0];
+    const local_likes_result = await DButils.execQuery(`
+      SELECT likes FROM recipes_local_likes WHERE recipeID = '${recipe.recipeID}'
+    `);
+    const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
+
+    return {
+      id: recipe.recipeID,
+      title: recipe.title,
+      image: recipe.image,
+      readyInMinutes: recipe.readyInMinutes,
+      popularity: local_likes,
+      vegan: recipe.vegan,
+      vegetarian: recipe.vegetarian,
+      glutenFree: recipe.glutenFree,
+      extendedIngredients: parseIngredients(recipe.extendedIngredients),
+      instructions: recipe.instructions,
+      servings: recipe.servings,
+    };
+  }
+
+  // ✅ Case 2: Family recipe (starts with 'F_')
+  if (recipe_id.startsWith("F_")) {
+    const results = await DButils.execQuery(`
+      SELECT recipeID, userID, title, image, readyInMinutes, extendedIngredients
+      FROM family_recipes
+      WHERE recipeID = '${recipe_id}'
+    `);
+
+    if (results.length === 0) {
+      throw new Error(`Family recipe ${recipe_id} not found`);
+    }
+
+    const recipe = results[0];
+
+    return {
+      id: recipe.recipeID,
+      title: recipe.title,
+      image: recipe.image,
+      readyInMinutes: recipe.readyInMinutes,
+      popularity: 0, 
+      extendedIngredients: parseIngredients(recipe.extendedIngredients),
+      instructions: "המתכון נשמר על ידי בני משפחה ואין לו הוראות פורמליות.",
+      servings: 1,
+      vegan: false,
+      vegetarian: false,
+      glutenFree: false
+    };
+  }
+
+  // Case 3: External recipe from Spoonacular (numeric ID)
+  let recipe_info = await getRecipeInformation(recipe_id);
+  let {
+    id,
+    title,
+    readyInMinutes,
+    image,
+    aggregateLikes,
+    vegan,
+    vegetarian,
+    glutenFree,
+    extendedIngredients,
+    instructions,
+    servings,
+  } = recipe_info.data;
+
+  const local_likes_result = await DButils.execQuery(`
+    SELECT likes FROM recipes_local_likes WHERE recipeID = '${id}'
+  `);
+  const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
+
+  return {
+    id,
+    title,
+    readyInMinutes,
+    image,
+    popularity: aggregateLikes + local_likes,
+    vegan,
+    vegetarian,
+    glutenFree,
+    extendedIngredients,
+    instructions,
+    servings,
+  };
 }
+
+// ✅ Utility to safely parse ingredients
+function parseIngredients(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    // fallback: split by comma if not valid JSON
+  }
+  return raw.split(',').map(str => str.trim());
+}
+
 
 
 // given an array of recipe full info - extract only the preview info
@@ -89,42 +179,77 @@ function extractPreviewRecipeDetails(recipes_info) {
 }
 
 // given an array of recipes ids -> retrive all recipe preciew 
+
 async function getRecipesPreview(recipes_ids_list) {
-  // extreact recipe details from DB 
-  db_recipes = [];
-  for (const id of recipes_ids_list){
-    if (id[0] == 'U')
-      db_recipes.push(id);
+  // Separate DB-based recipes (start with 'U')
+  const db_recipes = recipes_ids_list.filter(id => id[0] === 'U');
+
+  // Query DB recipes
+  let db_preview_recipe_records = [];
+  if (db_recipes.length > 0) {
+    db_preview_recipe_records = await DButils.execQuery(
+      `SELECT recipeID, title, image, readyInMinutes, vegan, vegetarian, glutenFree 
+       FROM recipes 
+       WHERE recipeID IN (${db_recipes.map(id => `'${id}'`).join(',')})`
+    );
+
+    // Convert recipeID → id
+    db_preview_recipe_records = db_preview_recipe_records.map(r => ({
+      id: r.recipeID,
+      title: r.title,
+      image: r.image,
+      readyInMinutes: r.readyInMinutes,
+      vegan: r.vegan,
+      vegetarian: r.vegetarian,
+      glutenFree: r.glutenFree
+    }));
   }
-  let db_preview_recipe_records;
-  if (db_recipes.length !== 0){
-    db_preview_recipe_records = await DButils.execQuery(`select recipeID, title, image, readyInMinutes, vegan, vegetarian, glutenFree from recipes where recipeID IN (${db_recipes.map(id => `'${id}'`).join(',')})`);
-  }
-  // extreact recipe details from spooncular 
+
+  // Query external API for non-DB recipes
   const filteredList = recipes_ids_list.filter(id => !db_recipes.includes(id));
-  let promises = [];
-  filteredList.map((id) => {
-    promises.push(getRecipeDetails(id));
-  });
-  let info_res = extractPreviewRecipeDetails(await Promise.all(promises));
-  
-  let all_recipes = Array.isArray(db_preview_recipe_records)
-  ? info_res.concat(db_preview_recipe_records)
-  : info_res;
-  return all_recipes;
+  let info_res = [];
+  if (filteredList.length > 0) {
+    const promises = filteredList.map(id => getRecipeDetails(id));
+    const apiResults = await Promise.all(promises);
+    info_res = extractPreviewRecipeDetails(apiResults);
+  }
+
+  // Combine results
+  return info_res.concat(db_preview_recipe_records);
 }
 
-// return 3 random recipes from spooncular API
-async function get3RandomPreviwe(){
-    let random_recipe_info = await axios.get(`${api_domain}/random?number=3`, {
-        params: {
-            includeNutrition: false,
-            apiKey: process.env.spooncular_apiKey
-        }
-    });
-    let recipes_array = random_recipe_info.data.recipes;
-    return extractPreviewRecipeDetails(recipes_array);
 
+// return 3 random recipes from spooncular API
+async function get3RandomPreviwe() {
+  const validRecipes = [];
+
+  while (validRecipes.length < 3) {
+    try {
+      const response = await axios.get(`${api_domain}/random?number=1`, {
+        params: {
+          includeNutrition: false,
+          apiKey: process.env.spooncular_apiKey,
+        }
+      });
+
+      const recipe = response.data.recipes[0];
+
+      const hasInstructions = recipe.instructions && recipe.instructions.trim() !== "";
+      const hasValidImage = typeof recipe.image === 'string' &&
+        recipe.image.includes("/recipes/") &&
+        recipe.image.includes(".jpg");
+
+      if (hasInstructions && hasValidImage) {
+        validRecipes.push(recipe);
+      }
+
+    } catch (error) {
+      console.error("🔁 Error (from spooncularAPI) fetching recipe:", error.message);
+      break;
+    }
+  }
+
+  return extractPreviewRecipeDetails(validRecipes);
 }
 
 async function searchRecipes(recipe_title, extended_search = {}) {

@@ -98,30 +98,30 @@ async function createNewRecipe(user_id, recipe_details) {
   const newID = `U_${maxID + 1}`;
 
   await DButils.execQuery(`
-    INSERT INTO recipes (
-      recipeID, title, readyInMinutes, image,
-      vegan, vegetarian, glutenFree, extendedIngredients,
-      instructions, servings, userID
-    )
-    VALUES (
-      '${newID}',
-      '${title}',
-      ${readyInMinutes},
-      '${image}',
-      ${vegan},
-      ${vegetarian},
-      ${glutenFree},
-      '${JSON.stringify(extendedIngredients)}',
-      '${instructions}',
-      ${servings},
-      ${user_id}
-    )
-  `);
+      INSERT INTO recipes (
+    recipeID, title, readyInMinutes, image,
+    vegan, vegetarian, glutenFree, extendedIngredients,
+    instructions, servings, userID
+      )
+      VALUES (
+        '${newID}',
+        '${title}',
+        ${readyInMinutes},
+        '${image}',
+        ${vegan ? 1 : 0},
+        ${vegetarian ? 1 : 0},
+        ${glutenFree ? 1 : 0},
+        '${JSON.stringify(extendedIngredients).replace(/'/g, "\\'")}',
+        '${instructions.replace(/'/g, "\\'")}',
+        ${servings},
+        ${user_id}
+      )
+    `);
   return { success: true, recipeID: newID };
 }
 
 async function getUserRecipes(user_id) {
-  const recipes_id = await DButils.execQuery(`SELECT CAST(SUBSTRING(recipeID, 3) AS UNSIGNED) AS recipe_num FROM recipes WHERE userID = ${user_id}`);
+  const recipes_id = await DButils.execQuery(`SELECT recipeID FROM recipes WHERE userID = ${user_id}`);
   return recipes_id
 }
 
