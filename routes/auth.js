@@ -3,6 +3,7 @@ var router = express.Router();
 const MySql = require("./utils/MySql");
 const DButils = require("./utils/DButils");
 const bcrypt = require("bcrypt");
+const { selectFields } = require("express-validator/src/select-fields");
 
 router.post("/Register", async (req, res, next) => {
   try {
@@ -81,7 +82,7 @@ router.post("/Logout", function (req, res) {
 });
 
 
-// boolean API interface to validate if there is a loged-in user (and who by userID) or not
+// boolean API interface to validate if there is a loged-in user (and who by userID) or not.
 router.get("/isLoggedIn", (req, res) => {
   if (req.session && req.session.user_id) {
     res.status(200).send({ isLoggedIn: true, username: req.session.username });
