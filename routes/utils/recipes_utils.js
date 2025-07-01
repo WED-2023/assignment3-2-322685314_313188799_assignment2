@@ -233,13 +233,9 @@ async function get3RandomPreviwe() {
       });
 
       const recipe = response.data.recipes[0];
+      const validation = await IsValidRecipe(recipe.image, recipe.instructions);
 
-      const hasInstructions = recipe.instructions && recipe.instructions.trim() !== "";
-      const hasValidImage = typeof recipe.image === 'string' &&
-        recipe.image.includes("/recipes/") &&
-        recipe.image.includes(".jpg");
-
-      if (hasInstructions && hasValidImage) {
+      if (validation){
         validRecipes.push(recipe);
       }
 
@@ -250,6 +246,33 @@ async function get3RandomPreviwe() {
   }
 
   return extractPreviewRecipeDetails(validRecipes);
+}
+
+async function IsValidRecipe(recipeURL, recipeInstructions){
+    // test img url
+    const isBroken = await isImageBroken(recipeURL); 
+    // text instructions
+    const hasInstructions = recipeInstructions && recipeInstructions.trim() !== "";
+    return !isBroken && hasInstructions;
+}
+
+const fetch = require("node-fetch"); // for demonstare a promper fetching of url as
+
+async function isImageBroken(url) {
+  if (
+    typeof url !== 'string' ||
+    url.trim().length === 0 ||
+    !/\.(jpg|jpeg|png|webp)$/i.test(url)
+  ) {
+    return true;
+  }
+
+  try {
+    const res = await fetch(url, { method: 'HEAD' }); // try to fetch url as img
+    return !res.ok; 
+  } catch (err) {
+    return true; // while error occured -> just return that this is a broken img
+  }
 }
 
 async function searchRecipes(recipe_title, extended_search = {}) {
@@ -279,8 +302,15 @@ async function searchRecipes(recipe_title, extended_search = {}) {
         params: params
     });
 
-  const ids = results_from_api.data.results.map(item => item.id);//extracting the recipe ids into array
-  return ids;
+  const filteredResults = [];
+  for (const recipe of results_from_api.data.results){
+    const recipe_detailed = (await getRecipeInformation(recipe.id)).data;
+    const isValid = await IsValidRecipe(recipe_detailed.image, recipe_detailed.instructions);
+    if (isValid) filteredResults.push(recipe_detailed.id);
+  }
+  return filteredResults;
+  // const ids = results_from_api.data.results.map(item => item.id);//extracting the recipe ids into array
+  // return ids;
 }
 
 async function increaseRecipeLikes(recipeID) {

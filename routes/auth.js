@@ -6,9 +6,6 @@ const bcrypt = require("bcrypt");
 
 router.post("/Register", async (req, res, next) => {
   try {
-    // parameters exists
-    // valid parameters
-    // username exists
     let user_details = {
       username: req.body.username,
       firstname: req.body.firstname,
@@ -16,16 +13,15 @@ router.post("/Register", async (req, res, next) => {
       country: req.body.country,
       password: req.body.password,
       email: req.body.email,
-      // profilePic: req.body.profilePic
     }
     let users = [];
-    users = await DButils.execQuery("SELECT username from users");
+    users = await DButils.execQuery("SELECT username, email FROM users");
 
     if (users.find((x) => x.username === user_details.username))
       throw { status: 409, message: "Username taken" };
 
     if (users.find((x) => x.email === user_details.email))
-      throw { status: 409, message: "Email already registered" };
+      throw { status: 409, message: "Email taken" };
 
     // add the new username
     let hash_password = bcrypt.hashSync(
