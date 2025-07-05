@@ -1,2 +1,5 @@
 .env
 node_modules/
+Select.sql
+package-lock.jason
+package.jason
