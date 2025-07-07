@@ -181,7 +181,7 @@ function extractPreviewRecipeDetails(recipes_info) {
 // given an array of recipes ids -> retrive all recipe preciew 
 
 async function getRecipesPreview(recipes_ids_list) {
-  // Separate DB-based recipes (start with 'U')
+  // Separate DB-based recipes (start with 'U')  
   const db_recipes = recipes_ids_list.filter(id => id[0] === 'U');
 
   // Query DB recipes
@@ -213,9 +213,15 @@ async function getRecipesPreview(recipes_ids_list) {
     const apiResults = await Promise.all(promises);
     info_res = extractPreviewRecipeDetails(apiResults);
   }
+  info_res.forEach(r => r.id = String(r.id));
 
   // Combine results
-  return info_res.concat(db_preview_recipe_records);
+const combined = info_res.concat(db_preview_recipe_records);
+// order results based on origin order
+const ordered = recipes_ids_list.map(id => combined.find(r => r.id === id));
+
+return ordered;
+
 }
 
 
@@ -304,13 +310,16 @@ async function searchRecipes(recipe_title, extended_search = {}) {
 
   const filteredResults = [];
   for (const recipe of results_from_api.data.results){
-    const recipe_detailed = (await getRecipeInformation(recipe.id)).data;
-    const isValid = await IsValidRecipe(recipe_detailed.image, recipe_detailed.instructions);
-    if (isValid) filteredResults.push(recipe_detailed.id);
+    try {
+      const recipe_detailed = (await getRecipeInformation(recipe.id)).data;
+      const isValid = await IsValidRecipe(recipe_detailed.image, recipe_detailed.instructions);
+      if (isValid) filteredResults.push(recipe_detailed.id);
+    } catch (err) {
+      console.log(`Failed to get details for recipe ${recipe.id}:`, err.message);
+    }
   }
+  console.log(`returning: ${filteredResults}`);
   return filteredResults;
-  // const ids = results_from_api.data.results.map(item => item.id);//extracting the recipe ids into array
-  // return ids;
 }
 
 async function increaseRecipeLikes(recipeID) {
