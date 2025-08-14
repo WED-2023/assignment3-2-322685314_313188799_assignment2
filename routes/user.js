@@ -8,6 +8,7 @@ const recipe_utils = require("./utils/recipes_utils");
  * Authenticate all incoming requests by middleware -> to prevent not-allowd user to performed a sign-up user actions 
  */
 router.use(async function (req, res, next) {
+  console.log("Session data:", req.session);
   if (req.session && req.session.user_id) {
     try {
       const users = await DButils.execQuery("SELECT userID FROM users");
@@ -127,7 +128,8 @@ router.get("/recipes", async (req, res, next) => {
     const user_id = req.session.user_id;
     const recipes_id = await user_utils.getUserRecipes(user_id);
     let recipes_id_array = [];
-    recipes_id.map((element) => recipes_id_array.push(element.recipe_num)); //extracting the recipe ids into array
+    recipes_id.map((element) => recipes_id_array.push(element.recipeID)); //extracting the recipe ids into array
+    console.log(`User recipes by id: ${recipes_id_array}`);
     const results = await user_utils.completeUserSpecificPreview(req.session, await recipe_utils.getRecipesPreview(recipes_id_array));
     res.status(200).send(results);
   } catch(error){
@@ -162,6 +164,23 @@ router.get('/family', async (req, res) => {
   }
 });
 
+router.get("/check-username", async (req, res, next) => {
+  try {
+    const { username } = req.query;
 
+    if (!username) {
+      return res.status(400).send({ message: "Username is required", success: false });
+    }
 
+    const users = await DButils.execQuery(
+      `SELECT username FROM users WHERE username = '${username}'`
+    );
+
+    const exists = users.length > 0;
+    res.status(200).send({ exists, success: true });
+
+  } catch (err) {
+    next(err); 
+  }
+});
 module.exports = router;
