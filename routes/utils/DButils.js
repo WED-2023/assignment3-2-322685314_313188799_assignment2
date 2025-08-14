@@ -17,4 +17,3 @@ exports.execQuery = async function (query) {
   }
   return returnValue
 }
-

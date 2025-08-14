@@ -19,10 +19,15 @@ app.use(cors({
 
 app.use(logger("dev")); //logger, each request sent to server will shown in console
 app.use(express.json()); // parse application/json -> even if the request has not send as json
+
+
 app.use(cors({
   origin: 'http://localhost:8080',
   credentials: true  
 }));
+
+
+
 // for each request we will open a session for the current client
 app.use(
   session({

@@ -34,7 +34,6 @@ async function getRecipeInformation(recipe_id) {
 }
 
 // Using spooncular API or local DB to extract recipe details
-// Using spooncular API or local DB to extract recipe details
 async function getRecipeDetails(recipe_id) {
   // Case 1: Local user-created recipe (starts with 'U_')
   recipe_id = String(recipe_id);
@@ -56,96 +55,6 @@ async function getRecipeDetails(recipe_id) {
     const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
 
     return {
-      id: recipe.recipeID,
-      title: recipe.title,
-      image: recipe.image,
-      readyInMinutes: recipe.readyInMinutes,
-      popularity: local_likes,
-      vegan: recipe.vegan,
-      vegetarian: recipe.vegetarian,
-      glutenFree: recipe.glutenFree,
-      extendedIngredients: parseIngredients(recipe.extendedIngredients),
-      instructions: recipe.instructions,
-      servings: recipe.servings,
-    };
-  }
-
-  // ✅ Case 2: Family recipe (starts with 'F_')
-  if (recipe_id.startsWith("F_")) {
-    const results = await DButils.execQuery(`
-      SELECT recipeID, userID, title, image, readyInMinutes, extendedIngredients
-      FROM family_recipes
-      WHERE recipeID = '${recipe_id}'
-    `);
-
-    if (results.length === 0) {
-      throw new Error(`Family recipe ${recipe_id} not found`);
-    }
-
-    const recipe = results[0];
-
-    return {
-      id: recipe.recipeID,
-      title: recipe.title,
-      image: recipe.image,
-      readyInMinutes: recipe.readyInMinutes,
-      popularity: 0, 
-      extendedIngredients: parseIngredients(recipe.extendedIngredients),
-      instructions: "המתכון נשמר על ידי בני משפחה ואין לו הוראות פורמליות.",
-      servings: 1,
-      vegan: false,
-      vegetarian: false,
-      glutenFree: false
-    };
-  }
-
-  // Case 3: External recipe from Spoonacular (numeric ID)
-  let recipe_info = await getRecipeInformation(recipe_id);
-  let {
-    id,
-    title,
-    readyInMinutes,
-    image,
-    aggregateLikes,
-    vegan,
-    vegetarian,
-    glutenFree,
-    extendedIngredients,
-    instructions,
-    servings,
-  } = recipe_info.data;
-
-  const local_likes_result = await DButils.execQuery(`
-    SELECT likes FROM recipes_local_likes WHERE recipeID = '${id}'
-  `);
-  const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
-
-  return {
-    id,
-    title,
-    readyInMinutes,
-    image,
-    popularity: aggregateLikes + local_likes,
-    vegan,
-    vegetarian,
-    glutenFree,
-    extendedIngredients,
-    instructions,
-    servings,
-  };
-}
-
-// ✅ Utility to safely parse ingredients
-function parseIngredients(raw) {
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
-  } catch (e) {
-    // fallback: split by comma if not valid JSON
-  }
-  return raw.split(',').map(str => str.trim());
-}
-
       id: recipe.recipeID,
       title: recipe.title,
       image: recipe.image,
@@ -272,7 +181,7 @@ function extractPreviewRecipeDetails(recipes_info) {
 // given an array of recipes ids -> retrive all recipe preciew 
 
 async function getRecipesPreview(recipes_ids_list) {
-  // Separate DB-based recipes (start with 'U')
+  // Separate DB-based recipes (start with 'U')  
   const db_recipes = recipes_ids_list.filter(id => id[0] === 'U');
 
   // Query DB recipes
@@ -304,9 +213,15 @@ async function getRecipesPreview(recipes_ids_list) {
     const apiResults = await Promise.all(promises);
     info_res = extractPreviewRecipeDetails(apiResults);
   }
+  info_res.forEach(r => r.id = String(r.id));
 
   // Combine results
-  return info_res.concat(db_preview_recipe_records);
+const combined = info_res.concat(db_preview_recipe_records);
+// order results based on origin order
+const ordered = recipes_ids_list.map(id => combined.find(r => r.id === id));
+
+return ordered;
+
 }
 
 
@@ -317,59 +232,7 @@ async function get3RandomPreviwe() {
   while (validRecipes.length < 3) {
     try {
       const response = await axios.get(`${api_domain}/random?number=1`, {
-async function get3RandomPreviwe() {
-  const validRecipes = [];
-
-  while (validRecipes.length < 3) {
-    try {
-      const response = await axios.get(`${api_domain}/random?number=1`, {
         params: {
-          includeNutrition: false,
-          apiKey: process.env.spooncular_apiKey,
-        }
-      });
-
-      const recipe = response.data.recipes[0];
-      const validation = await IsValidRecipe(recipe.image, recipe.instructions);
-
-      if (validation){
-        validRecipes.push(recipe);
-      }
-
-    } catch (error) {
-      console.error("🔁 Error (from spooncularAPI) fetching recipe:", error.message);
-      break;
-    }
-  }
-
-  return extractPreviewRecipeDetails(validRecipes);
-}
-
-async function IsValidRecipe(recipeURL, recipeInstructions){
-    // test img url
-    const isBroken = await isImageBroken(recipeURL); 
-    // text instructions
-    const hasInstructions = recipeInstructions && recipeInstructions.trim() !== "";
-    return !isBroken && hasInstructions;
-}
-
-const fetch = require("node-fetch"); // for demonstare a promper fetching of url as
-
-async function isImageBroken(url) {
-  if (
-    typeof url !== 'string' ||
-    url.trim().length === 0 ||
-    !/\.(jpg|jpeg|png|webp)$/i.test(url)
-  ) {
-    return true;
-  }
-
-  try {
-    const res = await fetch(url, { method: 'HEAD' }); // try to fetch url as img
-    return !res.ok; 
-  } catch (err) {
-    return true; // while error occured -> just return that this is a broken img
-  }
           includeNutrition: false,
           apiKey: process.env.spooncular_apiKey,
         }
@@ -447,13 +310,16 @@ async function searchRecipes(recipe_title, extended_search = {}) {
 
   const filteredResults = [];
   for (const recipe of results_from_api.data.results){
-    const recipe_detailed = (await getRecipeInformation(recipe.id)).data;
-    const isValid = await IsValidRecipe(recipe_detailed.image, recipe_detailed.instructions);
-    if (isValid) filteredResults.push(recipe_detailed.id);
+    try {
+      const recipe_detailed = (await getRecipeInformation(recipe.id)).data;
+      const isValid = await IsValidRecipe(recipe_detailed.image, recipe_detailed.instructions);
+      if (isValid) filteredResults.push(recipe_detailed.id);
+    } catch (err) {
+      console.log(`Failed to get details for recipe ${recipe.id}:`, err.message);
+    }
   }
+  console.log(`returning: ${filteredResults}`);
   return filteredResults;
-  // const ids = results_from_api.data.results.map(item => item.id);//extracting the recipe ids into array
-  // return ids;
 }
 
 async function increaseRecipeLikes(recipeID) {
