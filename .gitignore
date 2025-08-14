@@ -3,3 +3,6 @@ node_modules/
 Select.sql
 package-lock.jason
 package.jason
+dist/
+*.log
+.vscode/
