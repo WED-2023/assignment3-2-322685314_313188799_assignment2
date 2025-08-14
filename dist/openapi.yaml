@@ -27,18 +27,6 @@ tags:
     description: Operations about personal recipes management.
 paths:
   
-  /about:
-    get:
-      tags: 
-        - home
-      summary: Get about web-page
-      operationId: getAbout
-      description: Include a marketing summary about the development team and the project, with links to previous exercises.
-      responses:
-        '200':
-          description:  About web-page
-        '500':
-          description: Internal Server Error
   /Register:
     post:
       tags:
@@ -52,7 +40,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/User'
-        description: The user details for registration
+        description: The user details for registration (userID is not required as input)
       responses:
         '201':
           description: User created successfully
@@ -161,6 +149,7 @@ paths:
         Returns a catalog of 3 random recipe previews to be displayed on the homepage.  
         This endpoint is used for the initial homepage display.  
         A "Load More" button on the UI can trigger this endpoint again to fetch a different set of random recipes.
+        *Currentlly not support on recipes of users, only recipes from spooncular catalog - which means no U_[ID] recipes!
       responses:
         '200':
           description: A list of 3 random recipe previews
@@ -208,7 +197,7 @@ paths:
       operationId: searchRecipes
       description: |
         Search for recipes by name with optional filters for cuisine, diet, and intolerance. 
-        Results can be sorted and limited in number.
+        Results can be sorted and limited in number. Not supported on U_[ID] (user's recipes)! Only spooncular catalog.
       parameters:
         - name: query
           in: query
@@ -225,7 +214,7 @@ paths:
             type: integer
             enum: [5, 10, 15]
             default: 5
-        - name: sortBy
+        - name: sort
           in: query
           description: Sort results by preparation_time or popularity
           required: false
@@ -345,7 +334,7 @@ paths:
     delete:
       tags:
         - user
-      summary: Remove a user-created recipe
+      summary: Remove a user-created recipe. Here you need to insert only the number of recipe ans system will validate the U_[ID] part.
       operationId: deleteUserRecipe
       description: Deletes a recipe created by the user.
       parameters:
@@ -365,53 +354,35 @@ paths:
           description: Recipe not found or doesn't belong to the user
         '400':
           description: Invalid recipe ID format
-    get:
-      tags:
-        - user
-      summary: Get a user-created recipe by ID
-      operationId: getUserRecipeById
-      description: Returns the recipe created by the user that matches the given ID.
-      parameters:
-        - name: recipeId
-          in: path
-          required: true
-          description: The unique ID of the user-created recipe.
-          schema:
-            type: string
-            example: U_123
-      responses:
-        '200':
-          description: The requested recipe
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Recipe'
-        '401':
-          description: 'Unauthorized: user not authenticated'
-        '404':
-          description: Recipe not found or not owned by user
-  /user/watch/{recipeId}:
+  
+  /user/watch:
     post:
       tags:
         - user
-      summary: Mark a recipe as watched by current session user
+      summary: Mark a recipe as watched by current session user. Please if you want to add a user's recipes to watch - add a U_[id] next to it.
       operationId: markWatchedRecipe
-      description: Mark a recipe as watched by current session user
-      parameters:
-        - name: recipeId
-          in: path
-          required: true
-          description: ID of the recipe to mark
-          schema:
-            type: integer
+      description: Marks a recipe as watched by the current session user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipeId
+              properties:
+                recipeId:
+                  type: integer
+                  description: ID of the recipe to mark as watched.
+                  example: 125 or U_125
       responses:
         '200':
           description: Recipe marked as watched
         '404':
           description: Recipe not found
         '401':
-          description: 'Unauthorized: user not found'
-  /user/watch:
+          description: "Unauthorized: user not found"
+
     get:
       tags:
         - user
@@ -450,7 +421,7 @@ paths:
                 recipeId:
                   type: integer
                   description: Internal identifier of the recipe to add.
-                  example: U_12345
+                  example: "U_12345 or 5684"
       responses:
         '200':
           description: Recipe added to favorites
@@ -465,7 +436,7 @@ paths:
         - favorites
       summary: Get the list of user's favorite recipes
       operationId: getUserFavorites
-      description: Retrieves all the recipes that the user has added to their favorites.
+      description: Retrieves all the recipes that the user has added to their favorites (prevew).
       responses:
         '200':
           description: A list of the user's favorite recipes
@@ -526,7 +497,7 @@ paths:
   /like/{recipeID}:
     post:
       summary: Increase likes for a recipe
-      description: Increases the number of likes for the recipe with the specified ID. Only accessible to logged-in users.
+      description: Increases the number of likes for the recipe with the specified ID. Only accessible to logged-in users. Note - you can like a spooncular recipe as well as user's recipes. If you want to like user's recipe make sure to add U_[ID] so we can know which specific recipe you mean. 
       tags:
         - recipe
       parameters:
@@ -549,18 +520,19 @@ components:
     Recipe:
       type: object
       required:
-        - name
+        - title
         - image
-        - duration
+        - readyInMinutes
         - popularity
-        - vegan_or_vegetarian
-        - is_gluten_free
+        - vegan,
+        - vegetarian,
+        - glutenFree
       properties:
         recipeID:
           type: string
           description: Unique identifier (internal in the system's DB with a 'U' prefix) for the recipe, 'U_{Incremental number}'.
-          example: U_125
-        name:
+          example: "U_125 or 125"
+        title:
           type: string
           description: Full name of the recipe.
           minLength: 2
@@ -571,7 +543,7 @@ components:
           format: uri
           description: URL to an image representing the recipe.
           example: https://s.lightorangebean.com/media/20240914160809/Spicy-Penne-Pasta_-done.png
-        duration:
+        readyInMinutes:
           type: integer
           description: Preparation time in minutes.
           example: 15
@@ -580,15 +552,19 @@ components:
           format: integer
           description: Popularity among users will be the number of likes for this recipe.
           example: 105
-        vegan_or_vegetarian:
+        vegan:
           type: boolean
-          description: True if suitable for vegans or vegetarians.
+          description: True if suitable for vegans.
           example: true
-        is_gluten_free:
+        vegetarian:
+          type: boolean
+          description: True if suitable for vegetarians.
+          example: true
+        glutenFree:
           type: boolean
           description: True if gluten-free or uses alternatives.
           example: true
-        ingredients:
+        extendedIngredients:
           type: array
           description: "List of ingredients in the format ingredient: amount."
           items:
@@ -609,8 +585,8 @@ components:
       required:
         - username
         - password
-        - first_name
-        - last_name
+        - firstname
+        - lastname
         - country
         - email
       properties:
@@ -633,12 +609,12 @@ components:
           maxLength: 10
           pattern: "^(?=.*[a-zA-Z])(?=.*\\d).+$"
           
-        first_name:
+        firstname:
           type: string
           description: User's first name
           example: John
         
-        last_name:
+        lastname:
           type: string
           description: User's last name
           example: Doe

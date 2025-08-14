@@ -75,6 +75,10 @@ async function isWatchedByUser(user_id, recipe_id){
     return result.length > 0;
 }
 
+function sqlEscape(str) {
+  return str.replace(/'/g, "''");
+}
+
 // User's Recipes - All recipes are a DB recipe with ID formatted as U_ID
 async function createNewRecipe(user_id, recipe_details) {
   const {
@@ -97,32 +101,37 @@ async function createNewRecipe(user_id, recipe_details) {
   const maxID = result[0].maxID || 0;
   const newID = `U_${maxID + 1}`;
 
-  await DButils.execQuery(`
-      INSERT INTO recipes (
+     await DButils.execQuery(
+      `
+    INSERT INTO recipes (
     recipeID, title, readyInMinutes, image,
     vegan, vegetarian, glutenFree, extendedIngredients,
-    instructions, servings, userID
-      )
-      VALUES (
-        '${newID}',
-        '${title}',
-        ${readyInMinutes},
-        '${image}',
-        ${vegan ? 1 : 0},
-        ${vegetarian ? 1 : 0},
-        ${glutenFree ? 1 : 0},
-        '${JSON.stringify(extendedIngredients).replace(/'/g, "\\'")}',
-        '${instructions.replace(/'/g, "\\'")}',
-        ${servings},
-        ${user_id}
-      )
-    `);
+    instructions, servings, userID)
+    VALUES (
+      '${newID}',
+      '${sqlEscape(title)}',
+      ${readyInMinutes},
+      '${sqlEscape(image)}',
+      ${vegan ? 1 : 0},
+      ${vegetarian ? 1 : 0},
+      ${glutenFree ? 1 : 0},
+      '${sqlEscape(JSON.stringify(extendedIngredients))}',
+      '${sqlEscape(instructions)}',
+      ${servings},
+      ${user_id})`
+    );
+
   return { success: true, recipeID: newID };
 }
 
 async function getUserRecipes(user_id) {
-  const recipes_id = await DButils.execQuery(`SELECT recipeID FROM recipes WHERE userID = ${user_id}`);
-  return recipes_id
+  const recipes_id = await DButils.execQuery(`
+    SELECT recipeID
+    FROM recipes
+    WHERE userID = ${user_id}
+    ORDER BY CAST(SUBSTRING(recipeID, 3) AS UNSIGNED) 
+  `);
+  return recipes_id;
 }
 
 async function removeUserRecipe(recipeID) {
@@ -144,11 +153,28 @@ async function completeUserSpecificPreview(session, recipes_preview_info) {
 }
 
 async function getFamilyRecipes(user_id) {
-    const family_recipes = await DButils.execQuery(
-        `SELECT * FROM family_recipes WHERE userID=${user_id}`
-    );
-    return family_recipes;
+  const family_recipes = await DButils.execQuery(
+    `SELECT * FROM family_recipes WHERE userID=${user_id}`
+  );
+  const parsed = family_recipes.map(recipe => ({
+    ...recipe,
+    image: parseImageField(recipe.image),
+  }));
+  console.log("🔍 Parsed family recipes:", parsed);
+  return parsed;
 }
+
+function parseImageField(imageField) {
+  try {
+    const parsed = JSON.parse(imageField);
+    return (Array.isArray(parsed) ? parsed : [parsed]).map(p =>
+      String(p).replace(/^public[\\/]+/, '').replace(/\\/g, '/')
+    );
+  } catch {
+    return [String(imageField).replace(/^public[\\/]+/, '').replace(/\\/g, '/')];
+  }
+}
+
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
 exports.isFavoriteByUser = isFavoriteByUser;

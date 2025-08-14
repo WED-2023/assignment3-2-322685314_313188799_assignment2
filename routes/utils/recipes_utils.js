@@ -34,6 +34,7 @@ async function getRecipeInformation(recipe_id) {
 }
 
 // Using spooncular API or local DB to extract recipe details
+// Using spooncular API or local DB to extract recipe details
 async function getRecipeDetails(recipe_id) {
   // Case 1: Local user-created recipe (starts with 'U_')
   recipe_id = String(recipe_id);
@@ -55,6 +56,96 @@ async function getRecipeDetails(recipe_id) {
     const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
 
     return {
+      id: recipe.recipeID,
+      title: recipe.title,
+      image: recipe.image,
+      readyInMinutes: recipe.readyInMinutes,
+      popularity: local_likes,
+      vegan: recipe.vegan,
+      vegetarian: recipe.vegetarian,
+      glutenFree: recipe.glutenFree,
+      extendedIngredients: parseIngredients(recipe.extendedIngredients),
+      instructions: recipe.instructions,
+      servings: recipe.servings,
+    };
+  }
+
+  // ✅ Case 2: Family recipe (starts with 'F_')
+  if (recipe_id.startsWith("F_")) {
+    const results = await DButils.execQuery(`
+      SELECT recipeID, userID, title, image, readyInMinutes, extendedIngredients
+      FROM family_recipes
+      WHERE recipeID = '${recipe_id}'
+    `);
+
+    if (results.length === 0) {
+      throw new Error(`Family recipe ${recipe_id} not found`);
+    }
+
+    const recipe = results[0];
+
+    return {
+      id: recipe.recipeID,
+      title: recipe.title,
+      image: recipe.image,
+      readyInMinutes: recipe.readyInMinutes,
+      popularity: 0, 
+      extendedIngredients: parseIngredients(recipe.extendedIngredients),
+      instructions: "המתכון נשמר על ידי בני משפחה ואין לו הוראות פורמליות.",
+      servings: 1,
+      vegan: false,
+      vegetarian: false,
+      glutenFree: false
+    };
+  }
+
+  // Case 3: External recipe from Spoonacular (numeric ID)
+  let recipe_info = await getRecipeInformation(recipe_id);
+  let {
+    id,
+    title,
+    readyInMinutes,
+    image,
+    aggregateLikes,
+    vegan,
+    vegetarian,
+    glutenFree,
+    extendedIngredients,
+    instructions,
+    servings,
+  } = recipe_info.data;
+
+  const local_likes_result = await DButils.execQuery(`
+    SELECT likes FROM recipes_local_likes WHERE recipeID = '${id}'
+  `);
+  const local_likes = local_likes_result.length > 0 ? local_likes_result[0].likes : 0;
+
+  return {
+    id,
+    title,
+    readyInMinutes,
+    image,
+    popularity: aggregateLikes + local_likes,
+    vegan,
+    vegetarian,
+    glutenFree,
+    extendedIngredients,
+    instructions,
+    servings,
+  };
+}
+
+// ✅ Utility to safely parse ingredients
+function parseIngredients(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    // fallback: split by comma if not valid JSON
+  }
+  return raw.split(',').map(str => str.trim());
+}
+
       id: recipe.recipeID,
       title: recipe.title,
       image: recipe.image,
@@ -226,7 +317,59 @@ async function get3RandomPreviwe() {
   while (validRecipes.length < 3) {
     try {
       const response = await axios.get(`${api_domain}/random?number=1`, {
+async function get3RandomPreviwe() {
+  const validRecipes = [];
+
+  while (validRecipes.length < 3) {
+    try {
+      const response = await axios.get(`${api_domain}/random?number=1`, {
         params: {
+          includeNutrition: false,
+          apiKey: process.env.spooncular_apiKey,
+        }
+      });
+
+      const recipe = response.data.recipes[0];
+      const validation = await IsValidRecipe(recipe.image, recipe.instructions);
+
+      if (validation){
+        validRecipes.push(recipe);
+      }
+
+    } catch (error) {
+      console.error("🔁 Error (from spooncularAPI) fetching recipe:", error.message);
+      break;
+    }
+  }
+
+  return extractPreviewRecipeDetails(validRecipes);
+}
+
+async function IsValidRecipe(recipeURL, recipeInstructions){
+    // test img url
+    const isBroken = await isImageBroken(recipeURL); 
+    // text instructions
+    const hasInstructions = recipeInstructions && recipeInstructions.trim() !== "";
+    return !isBroken && hasInstructions;
+}
+
+const fetch = require("node-fetch"); // for demonstare a promper fetching of url as
+
+async function isImageBroken(url) {
+  if (
+    typeof url !== 'string' ||
+    url.trim().length === 0 ||
+    !/\.(jpg|jpeg|png|webp)$/i.test(url)
+  ) {
+    return true;
+  }
+
+  try {
+    const res = await fetch(url, { method: 'HEAD' }); // try to fetch url as img
+    return !res.ok; 
+  } catch (err) {
+    return true; // while error occured -> just return that this is a broken img
+  }
           includeNutrition: false,
           apiKey: process.env.spooncular_apiKey,
         }
