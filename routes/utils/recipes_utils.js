@@ -218,7 +218,7 @@ async function getRecipesPreview(recipes_ids_list) {
   // Combine results
 const combined = info_res.concat(db_preview_recipe_records);
 // order results based on origin order
-const ordered = recipes_ids_list.map(id => combined.find(r => r.id === id));
+const ordered = recipes_ids_list.map(id => combined.find(r => r.id === String(id)));
 
 return ordered;
 
