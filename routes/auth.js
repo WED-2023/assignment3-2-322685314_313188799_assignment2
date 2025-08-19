@@ -3,7 +3,6 @@ var router = express.Router();
 const MySql = require("./utils/MySql");
 const DButils = require("./utils/DButils");
 const bcrypt = require("bcrypt");
-const { selectFields } = require("express-validator/src/select-fields");
 
 router.post("/Register", async (req, res, next) => {
   try {
